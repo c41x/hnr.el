@@ -1,6 +1,6 @@
 # hnr.el
 Hacker News Reader for Emacs
 
-/Work in progress/
+*Work in progress*
 
-![Preview](/preview.png?raw=true "Preview")
+![Preview](/sample.png?raw=true "Preview")
