@@ -26,6 +26,8 @@
 (defvar hnr--item 0)
 (defvar hnr--max-items 5)
 (defvar hnr--keymap (make-sparse-keymap))
+(defvar hnr--max-item 0)
+(defvar hnr--read-item 0)
 
 (defvar hnr-max-items 5)
 
@@ -64,6 +66,18 @@
   "Face used for highlighted points section"
   :group 'hnr)
 
+(defvar hnr-cache-file "~/.emacs.d/.hnr-cache")
+
+(defun hnr--store-cache (id)
+  (write-region (int-to-string id) nil hnr-cache-file nil))
+
+(defun hnr--get-cache ()
+  (with-temp-buffer
+    (if (file-exists-p hnr-cache-file)
+	(progn (insert-file-contents hnr-cache-file)
+	       (string-to-int (buffer-string)))
+      0)))
+
 (defun hnr--switch-to-buffer ()
   (switch-to-buffer (get-buffer-create "Hacker News Reader")))
 
@@ -97,13 +111,16 @@
 (defun hnr--fetch-item ()
   (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%s.json" (elt hnr--items hnr--item)) 'hnr--process-get-item))
 
+(defvar hnr--load-more-point 0)
+
 (defun hnr-load-more (&optional x)
   (interactive)
-  (end-of-buffer)
+  (goto-char (point-max))
   (forward-line -1)
   (end-of-line)
   (enable-write
    (delete-region (point) (point-max)))
+  (setq hnr--load-more-point (point))
   (setq hnr--item (+ 1 hnr--item))
   (setq hnr--max-items (+ hnr--max-items hnr-max-items))
   (hnr--fetch-item))
@@ -111,34 +128,47 @@
 (defun hnr--process-get-item (res)
   (hnr--switch-to-buffer)
   (let* ((item-json (json-read-from-string res))
+	 (item-id (cdr (assoc 'id item-json)))
 	 (item-type (cdr (assoc 'type item-json)))
 	 (item-descendants (cdr (assoc 'descendants item-json)))
 	 (item-url (cdr (assoc 'url item-json)))
 	 (item-by (cdr (assoc 'by item-json)))
+	 (item-kids (cdr (assoc 'kids item-json)))
+	 (item-time (cdr (assoc 'time item-json)))
 	 (buffer-read-only nil))
-    (insert (propertize (format "%s %-4d " (make-string 1 9650) (cdr (assoc 'score item-json)))
-			'id item-url
-			'face 'hnr-points-face))
-    (hnr--insert-primary (cdr (assoc 'title item-json)))
-    (newline)
-    (beginning-of-line)
-    (insert (make-string 7 32))
-    (hnr--button (format "https://news.ycombinator.com/user?id=%s" item-by) item-by)
-    (hnr--insert-secondary " | ")
-    (hnr--insert-secondary (format "%s" (format-time-string "%Y-%m-%d %H:%M:%S" (seconds-to-time (cdr (assoc 'time item-json))))))
-    (when (and (or (string= "story" item-type)
-		   (string= "pool" item-type))
-	       (> item-descendants 0))
-      (hnr--insert-secondary (format " | %d Comments" item-descendants))
-      (hnr--button (format "https://news.ycombinator.com/item?id=%d" (elt (cdr (assoc 'kids item-json)) 0))
-		   (format "..." item-descendants)))
-    (newline)
-    (beginning-of-line)
-    (insert (make-string 7 32))
-    (hnr--button item-url item-url))
-  (enable-write
-   (newline 2)
-   (beginning-of-line))
+    (if (< hnr--read-item item-id)
+	(progn
+	  (setq hnr--max-item (max hnr--max-item item-id))
+	  (insert (propertize (format "%s %-4d " (make-string 1 9650) (cdr (assoc 'score item-json)))
+			      'id item-url
+			      'root item-id
+			      'kids item-kids
+			      'face 'hnr-points-face))
+	  (hnr--insert-primary (cdr (assoc 'title item-json)))
+	  (newline)
+	  (beginning-of-line)
+	  (insert (make-string 7 32))
+	  (hnr--button (format "https://news.ycombinator.com/user?id=%s" item-by) item-by)
+	  (hnr--insert-secondary " | ")
+	  (insert (if (< hnr--read-item item-id) "not read | " "read | "))
+	  (insert (int-to-string item-id))
+	  (insert " | ")
+	  (insert (int-to-string hnr--read-item))
+	  (insert " | ")
+	  (hnr--insert-secondary (format "%s" (format-time-string "%Y-%m-%d %H:%M:%S" (seconds-to-time item-time))))
+	  (when (and (or (string= "story" item-type)
+			 (string= "pool" item-type))
+		     (> item-descendants 0))
+	    (hnr--insert-secondary (format " | %d Comments" item-descendants))
+	    (hnr--button (format "https://news.ycombinator.com/item?id=%d" item-id) "..."))
+	  (newline)
+	  (beginning-of-line)
+	  (insert (make-string 7 32))
+	  (hnr--button item-url item-url)
+	  (newline 2)
+	  (beginning-of-line))
+      ;;(setq hnr--item (- hnr--item 1))
+      ))
   (if (< hnr--item (min hnr--max-items (length hnr--items)))
       (progn (setq hnr--item (+ 1 hnr--item))
 	     (hnr--fetch-item))
@@ -148,7 +178,9 @@
 		    'follow-link t
 		    'face 'hnr-link-face
 		    'mouse-face 'hnr-link-hover-face
-		    'action 'hnr-load-more))))
+		    'action 'hnr-load-more)
+     (goto-char hnr--load-more-point)
+     (hnr--move t))))
 
 (defun hnr--process-topstories (res)
   (setq hnr--items-str res)
@@ -165,7 +197,64 @@
   (define-key hnr--keymap (kbd "RET") 'hnr-open-selected))
 
 (defvar hnr--selected-item "")
-(defvar hnr--prv-selected-point (point))
+(defvar hnr--selected-item-kids '())
+(defvar hnr--prv-selected-point 0)
+(defvar hnr--open-comment-index 0)
+(defvar hnr--selected-item-id 0)
+
+(defvar hnr--comment-max-items 5)
+(defvar hnr--comment-load-more-point 0)
+(defvar hnr-max-comment-items 5)
+
+(defun hnr-load-more-comments (&optional x)
+  (interactive)
+  (goto-char (point-max))
+  (forward-line -1)
+  (end-of-line)
+  (enable-write
+   (delete-region (point) (point-max))
+   (newline))
+  (setq hnr--comment-load-more-point (point))
+  (setq hnr--open-comment-index (+ 1 hnr--open-comment-index))
+  (setq hnr--comment-max-items hnr-max-comment-items)
+  (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%d.json"
+			   (elt hnr--selected-item-kids
+				hnr--open-comment-index))
+			  'hnr--process-open-comment))
+
+(defun hnr--process-open-comment (res)
+  (switch-to-buffer (get-buffer-create "Hacker News Reader | Comments"))
+  (let* ((item-json (json-read-from-string res))
+	 (item-title (assoc 'title item-json))
+	 (buffer-read-only nil))
+    (insert (if item-title (cdr item-title) (cdr (assoc 'text item-json)))))
+  (newline 2)
+  (if (and (> hnr--comment-max-items 0)
+	   (setq hnr--comment-max-items (- hnr--comment-max-items 1))
+	   (< hnr--open-comment-index (- (length hnr--selected-item-kids) 1)))
+      (progn (setq hnr--open-comment-index (+ 1 hnr--open-comment-index))
+	     (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%d.json"
+				    (elt hnr--selected-item-kids
+					 hnr--open-comment-index))
+			    'hnr--process-open-comment))
+    (enable-write
+     (when (< hnr--open-comment-index (- (length hnr--selected-item-kids) 1))
+       (insert-button "More..."
+		      'follow-link t
+		      'face 'hnr-link-face
+		      'mouse-face 'hnr-link-hover-face
+		      'action 'hnr-load-more-comments))
+     (goto-char hnr--comment-load-more-point))))
+
+(defun hnr-open-comments ()
+  (interactive)
+  (when (> (length hnr--selected-item-kids) 0)
+    (setq hnr--open-comment-index -1)
+    (setq hnr--comment-max-items hnr-max-comment-items)
+    (setq hnr--comment-load-more-point 0)
+    (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%d.json"
+			   hnr--selected-item-id)
+		   'hnr--process-open-comment)))
 
 (defun hnr--move (forward)
   (if forward
@@ -179,6 +268,8 @@
       (enable-write
        (put-text-property (point) (+ (point) 7) 'face 'hnr-points-face))))
   (setq hnr--selected-item (get-char-property (point) 'id))
+  (setq hnr--selected-item-kids (get-char-property (point) 'kids))
+  (setq hnr--selected-item-id (get-char-property (point) 'root))
   (beginning-of-line)
   (setq hnr--prv-selected-point (point))
   (enable-write
@@ -196,12 +287,20 @@
 (defun hnr-open-selected ()
   (interactive)
   (unless (string= "" hnr--selected-item)
-    (browse-url (format "https://news.ycombinator.com/item?id=%d" hnr--selected-item))))
+    (browse-url hnr--selected-item)))
+
+(defun hnr-mark-all-as-read ()
+  (interactive)
+  (hnr--store-cache (max hnr--max-item hnr--read-item)))
 
 (defun hnr ()
+  (interactive)
+  ;;(setq hnr--read-date (hnr--get-cache))
+  (setq hnr--read-item 9367260)
   (hnr--switch-to-buffer)
   (enable-write
    (delete-region (point-min) (point-max)))
+  (setq hnr--load-more-point 0)
   (use-local-map hnr--keymap)
   (setq buffer-read-only t)
   (enable-write
@@ -210,4 +309,4 @@
   ;;(hnr--http-get "https://hacker-news.firebaseio.com/v0/newstories.json" 'hnr--process-topstories)
   )
 
-(hnr)
+(provide 'hnr)
