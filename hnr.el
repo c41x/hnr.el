@@ -1,6 +1,7 @@
 ;; -*- lexical-binding: t -*-
 (require 'json)
 (require 'url)
+(require 'cl-lib)
 (setq lexical-binding t)
 
 (defun hnr--http-get (url callback)
@@ -37,7 +38,7 @@
   :prefix "hnr-")
 
 (defface hnr-primary-face
-  '((t (:foreground "White" :weight bold)))
+  '((t (:foreground "SteelBlue3" :weight bold)))
   "Face used for news title"
   :group 'hnr)
 
@@ -47,35 +48,35 @@
   :group 'hnr)
 
 (defface hnr-link-face
-  '((t (:foreground "CornflowerBlue")))
+  '((t (:foreground "DimGrey" :underline t)))
   "Face used for links"
   :group 'hnr)
 
 (defface hnr-link-hover-face
-  '((t (:foreground "CornflowerBlue" :underline t)))
+  '((t (:foreground "gold" :underline t)))
   "Face used for highlighted links"
   :group 'hnr)
 
 (defface hnr-points-face
-  '((t (:foreground "gray")))
+  '((t (:foreground "sienna1")))
   "Face used for points section"
   :group 'hnr)
 
 (defface hnr-points-selected-face
-  '((t (:foreground "red")))
+  '((t (:foreground "gold")))
   "Face used for highlighted points section"
   :group 'hnr)
 
 (defvar hnr-cache-file "~/.emacs.d/.hnr-cache")
 
 (defun hnr--store-cache (id)
-  (write-region (int-to-string id) nil hnr-cache-file nil))
+  (write-region (number-to-string id) nil hnr-cache-file nil))
 
 (defun hnr--get-cache ()
   (with-temp-buffer
     (if (file-exists-p hnr-cache-file)
 	(progn (insert-file-contents hnr-cache-file)
-	       (string-to-int (buffer-string)))
+	       (string-to-number (buffer-string)))
       0)))
 
 (defun hnr--switch-to-buffer ()
@@ -115,15 +116,16 @@
 
 (defun hnr-load-more (&optional x)
   (interactive)
-  (goto-char (point-max))
-  (forward-line -1)
-  (end-of-line)
-  (enable-write
-   (delete-region (point) (point-max)))
-  (setq hnr--load-more-point (point))
-  (setq hnr--item (+ 1 hnr--item))
-  (setq hnr--max-items (+ hnr--max-items hnr-max-items))
-  (hnr--fetch-item))
+  (when (< hnr--item (- (length hnr--items) 1))
+    (goto-char (point-max))
+    (forward-line -1)
+    (end-of-line)
+    (enable-write
+     (delete-region (point) (point-max)))
+    (setq hnr--load-more-point (point))
+    (setq hnr--item (+ 1 hnr--item))
+    (setq hnr--max-items (+ hnr--max-items hnr-max-items))
+    (hnr--fetch-item)))
 
 (defun hnr--process-get-item (res)
   (hnr--switch-to-buffer)
@@ -135,59 +137,66 @@
 	 (item-by (cdr (assoc 'by item-json)))
 	 (item-kids (cdr (assoc 'kids item-json)))
 	 (item-time (cdr (assoc 'time item-json)))
+	 (item-id-url (format "https://news.ycombinator.com/item?id=%d" item-id))
+	 (item-final-url (if (string= "" item-url) item-id-url item-url))
 	 (buffer-read-only nil))
-    (if (< hnr--read-item item-id)
-	(progn
-	  (setq hnr--max-item (max hnr--max-item item-id))
-	  (insert (propertize (format "%s %-4d " (make-string 1 9650) (cdr (assoc 'score item-json)))
-			      'id item-url
-			      'root item-id
-			      'kids item-kids
-			      'face 'hnr-points-face))
-	  (hnr--insert-primary (cdr (assoc 'title item-json)))
-	  (newline)
-	  (beginning-of-line)
-	  (insert (make-string 7 32))
-	  (hnr--button (format "https://news.ycombinator.com/user?id=%s" item-by) item-by)
-	  (hnr--insert-secondary " | ")
-	  (insert (if (< hnr--read-item item-id) "not read | " "read | "))
-	  (insert (int-to-string item-id))
-	  (insert " | ")
-	  (insert (int-to-string hnr--read-item))
-	  (insert " | ")
-	  (hnr--insert-secondary (format "%s" (format-time-string "%Y-%m-%d %H:%M:%S" (seconds-to-time item-time))))
-	  (when (and (or (string= "story" item-type)
-			 (string= "pool" item-type))
-		     (> item-descendants 0))
-	    (hnr--insert-secondary (format " | %d Comments" item-descendants))
-	    (hnr--button (format "https://news.ycombinator.com/item?id=%d" item-id) "..."))
-	  (newline)
-	  (beginning-of-line)
-	  (insert (make-string 7 32))
-	  (hnr--button item-url item-url)
-	  (newline 2)
-	  (beginning-of-line))
-      ;;(setq hnr--item (- hnr--item 1))
-      ))
-  (if (< hnr--item (min hnr--max-items (length hnr--items)))
-      (progn (setq hnr--item (+ 1 hnr--item))
-	     (hnr--fetch-item))
+    (setq hnr--max-item (max hnr--max-item item-id))
+    (insert (propertize (format "%s %-4d " (make-string 1 9650) (cdr (assoc 'score item-json)))
+			'id item-final-url
+			'root item-id
+			'kids item-kids
+			'face 'hnr-points-face))
+    (hnr--insert-primary (cdr (assoc 'title item-json)))
+    (newline)
+    (beginning-of-line)
+    (insert (make-string 7 32))
+    (hnr--button (format "https://news.ycombinator.com/user?id=%s" item-by) item-by)
+    (hnr--insert-secondary " | ")
+    ;; (insert (if (< hnr--read-item item-id) "not read | " "read | "))
+    ;; (insert (number-to-string item-id))
+    ;; (insert " | ")
+    ;; (insert (number-to-string hnr--read-item))
+    ;; (insert " | ")
+    (hnr--insert-secondary (format "%s" (format-time-string "%Y-%m-%d %H:%M:%S" (seconds-to-time item-time))))
+    (when (and (or (string= "story" item-type)
+		   (string= "pool" item-type))
+	       (> item-descendants 0))
+      (hnr--insert-secondary " | ")
+      (hnr--button item-id-url (format "%d Comments" item-descendants)))
+    (newline)
+    (beginning-of-line)
+    (insert (make-string 7 32))
+    (hnr--button item-final-url item-final-url)
+    (newline 2)
+    (beginning-of-line))
+  (if (< hnr--item (- (length hnr--items) 1))
+      (if (< hnr--item hnr--max-items)
+	  (progn (setq hnr--item (+ 1 hnr--item))
+		 (hnr--fetch-item))
+	(enable-write
+	 (newline)
+	 (insert-button "More..."
+			'follow-link t
+			'face 'hnr-link-face
+			'mouse-face 'hnr-link-hover-face
+			'action 'hnr-load-more)))
     (enable-write
-     (newline)
-     (insert-button "More..."
-		    'follow-link t
-		    'face 'hnr-link-face
-		    'mouse-face 'hnr-link-hover-face
-		    'action 'hnr-load-more)
+     (insert "End of Feed")
      (goto-char hnr--load-more-point)
-     (hnr--move t))))
+     (hnr--move t))
+    (hnr-mark-all-as-read)))
+
+(defun hnr--filter-read (list)
+  (cl-remove-if (lambda (x) (<= x hnr--read-item)) list))
 
 (defun hnr--process-topstories (res)
   (setq hnr--items-str res)
-  (setq hnr--items (json-read-from-string res))
+  (setq hnr--items (hnr--filter-read (json-read-from-string res)))
   (setq hnr--item 0)
   (setq hnr--max-items hnr-max-items)
-  (hnr--fetch-item))
+  (if (> (length hnr--items) 0)
+      (hnr--fetch-item)
+    (enable-write (insert "No new items"))))
 
 (when hnr--keymap
   (define-key hnr--keymap (kbd "q") 'hnr-quit)
@@ -291,12 +300,13 @@
 
 (defun hnr-mark-all-as-read ()
   (interactive)
-  (hnr--store-cache (max hnr--max-item hnr--read-item)))
+  ;; (hnr--store-cache (max hnr--max-item hnr--read-item))
+  )
 
 (defun hnr ()
   (interactive)
-  ;;(setq hnr--read-date (hnr--get-cache))
-  (setq hnr--read-item 9367260)
+  ;;(setq hnr--read-item (hnr--get-cache))
+  (setq hnr--read-item 9373303)
   (hnr--switch-to-buffer)
   (enable-write
    (delete-region (point-min) (point-max)))
