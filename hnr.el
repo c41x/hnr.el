@@ -30,7 +30,8 @@
 (defvar hnr--max-item 0)
 (defvar hnr--read-item 0)
 
-(defvar hnr-max-items 5)
+(defvar hnr-max-items 10)
+(defvar hnr-auto-mark-as-read nil)
 
 (defgroup hnr nil
   "hackernews emacs client"
@@ -170,16 +171,23 @@
 		 (hnr--fetch-item))
 	(enable-write
 	 (newline)
+	 (insert-button "Mark all as read"
+			'follow-link t
+			'face 'hnr-link-face
+			'mouse-face 'hnr-link-hover-face
+			'action 'hnr-mark-all-as-read)
+	 (insert "      ")
 	 (insert-button "More..."
 			'follow-link t
 			'face 'hnr-link-face
 			'mouse-face 'hnr-link-hover-face
-			'action 'hnr-load-more)))
+			'action 'hnr-load-more))
+	(goto-char hnr--load-more-point)
+	(hnr--move t))
     (enable-write
-     (insert "End of Feed")
-     (goto-char hnr--load-more-point)
-     (hnr--move t))
-    (hnr-mark-all-as-read)))
+     (insert "End of Feed"))
+    (when hnr-auto-mark-as-read
+      (hnr-mark-all-as-read))))
 
 (defun hnr--filter-read (list)
   (cl-remove-if (lambda (x) (<= x hnr--read-item)) list))
@@ -198,6 +206,9 @@
   (define-key hnr--keymap (kbd "SPC") 'hnr-load-more)
   (define-key hnr--keymap (kbd "n") 'hnr-next)
   (define-key hnr--keymap (kbd "p") 'hnr-previous)
+  (define-key hnr--keymap (kbd "<down>") 'hnr-next)
+  (define-key hnr--keymap (kbd "<up>") 'hnr-previous)
+  (define-key hnr--keymap (kbd "a") 'hnr-mark-all-as-read)
   (define-key hnr--keymap (kbd "RET") 'hnr-open-selected))
 
 (defvar hnr--selected-item "")
