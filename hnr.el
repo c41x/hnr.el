@@ -300,13 +300,12 @@
 
 (defun hnr-mark-all-as-read ()
   (interactive)
-  ;; (hnr--store-cache (max hnr--max-item hnr--read-item))
-  )
+  (hnr--store-cache (max hnr--max-item hnr--read-item)))
 
 (defun hnr ()
   (interactive)
-  ;;(setq hnr--read-item (hnr--get-cache))
-  (setq hnr--read-item 9373303)
+  (setq hnr--read-item (hnr--get-cache))
+  ;;(setq hnr--read-item 9373303)
   (hnr--switch-to-buffer)
   (enable-write
    (delete-region (point-min) (point-max)))
