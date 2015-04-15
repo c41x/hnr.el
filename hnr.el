@@ -152,11 +152,6 @@
     (insert (make-string 7 32))
     (hnr--button (format "https://news.ycombinator.com/user?id=%s" item-by) item-by)
     (hnr--insert-secondary " | ")
-    ;; (insert (if (< hnr--read-item item-id) "not read | " "read | "))
-    ;; (insert (number-to-string item-id))
-    ;; (insert " | ")
-    ;; (insert (number-to-string hnr--read-item))
-    ;; (insert " | ")
     (hnr--insert-secondary (format "%s" (format-time-string "%Y-%m-%d %H:%M:%S" (seconds-to-time item-time))))
     (when (and (or (string= "story" item-type)
 		   (string= "pool" item-type))
@@ -208,62 +203,7 @@
 (defvar hnr--selected-item "")
 (defvar hnr--selected-item-kids '())
 (defvar hnr--prv-selected-point 0)
-(defvar hnr--open-comment-index 0)
 (defvar hnr--selected-item-id 0)
-
-(defvar hnr--comment-max-items 5)
-(defvar hnr--comment-load-more-point 0)
-(defvar hnr-max-comment-items 5)
-
-(defun hnr-load-more-comments (&optional x)
-  (interactive)
-  (goto-char (point-max))
-  (forward-line -1)
-  (end-of-line)
-  (enable-write
-   (delete-region (point) (point-max))
-   (newline))
-  (setq hnr--comment-load-more-point (point))
-  (setq hnr--open-comment-index (+ 1 hnr--open-comment-index))
-  (setq hnr--comment-max-items hnr-max-comment-items)
-  (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%d.json"
-			   (elt hnr--selected-item-kids
-				hnr--open-comment-index))
-			  'hnr--process-open-comment))
-
-(defun hnr--process-open-comment (res)
-  (switch-to-buffer (get-buffer-create "Hacker News Reader | Comments"))
-  (let* ((item-json (json-read-from-string res))
-	 (item-title (assoc 'title item-json))
-	 (buffer-read-only nil))
-    (insert (if item-title (cdr item-title) (cdr (assoc 'text item-json)))))
-  (newline 2)
-  (if (and (> hnr--comment-max-items 0)
-	   (setq hnr--comment-max-items (- hnr--comment-max-items 1))
-	   (< hnr--open-comment-index (- (length hnr--selected-item-kids) 1)))
-      (progn (setq hnr--open-comment-index (+ 1 hnr--open-comment-index))
-	     (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%d.json"
-				    (elt hnr--selected-item-kids
-					 hnr--open-comment-index))
-			    'hnr--process-open-comment))
-    (enable-write
-     (when (< hnr--open-comment-index (- (length hnr--selected-item-kids) 1))
-       (insert-button "More..."
-		      'follow-link t
-		      'face 'hnr-link-face
-		      'mouse-face 'hnr-link-hover-face
-		      'action 'hnr-load-more-comments))
-     (goto-char hnr--comment-load-more-point))))
-
-(defun hnr-open-comments ()
-  (interactive)
-  (when (> (length hnr--selected-item-kids) 0)
-    (setq hnr--open-comment-index -1)
-    (setq hnr--comment-max-items hnr-max-comment-items)
-    (setq hnr--comment-load-more-point 0)
-    (hnr--http-get (format "https://hacker-news.firebaseio.com/v0/item/%d.json"
-			   hnr--selected-item-id)
-		   'hnr--process-open-comment)))
 
 (defun hnr--move (forward)
   (if forward
@@ -314,8 +254,6 @@
   (setq buffer-read-only t)
   (enable-write
    (newline))
-  (hnr--http-get "https://hacker-news.firebaseio.com/v0/topstories.json" 'hnr--process-topstories)
-  ;;(hnr--http-get "https://hacker-news.firebaseio.com/v0/newstories.json" 'hnr--process-topstories)
-  )
+  (hnr--http-get "https://hacker-news.firebaseio.com/v0/topstories.json" 'hnr--process-topstories))
 
 (provide 'hnr)
