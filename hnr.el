@@ -187,11 +187,11 @@
     (enable-write
      (insert "End of Feed")
      (insert "      ")
-     (insert-button "More..."
+     (insert-button "Mark all as read"
 		    'follow-link t
 		    'face 'hnr-link-face
 		    'mouse-face 'hnr-link-hover-face
-		    'action 'hnr-load-more)
+		    'action 'hnr-mark-all-as-read)
      (goto-char hnr--load-more-point)
      (hnr--move t))
     (when hnr-auto-mark-as-read
@@ -257,7 +257,7 @@
   (unless (string= "" hnr--selected-item)
     (browse-url hnr--selected-item)))
 
-(defun hnr-mark-all-as-read ()
+(defun hnr-mark-all-as-read (&optional x)
   (interactive)
   (hnr--store-cache (max hnr--max-item hnr--read-item)))
 
