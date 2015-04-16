@@ -185,7 +185,15 @@
 	(goto-char hnr--load-more-point)
 	(hnr--move t))
     (enable-write
-     (insert "End of Feed"))
+     (insert "End of Feed")
+     (insert "      ")
+     (insert-button "More..."
+		    'follow-link t
+		    'face 'hnr-link-face
+		    'mouse-face 'hnr-link-hover-face
+		    'action 'hnr-load-more)
+     (goto-char hnr--load-more-point)
+     (hnr--move t))
     (when hnr-auto-mark-as-read
       (hnr-mark-all-as-read))))
 
