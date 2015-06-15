@@ -95,7 +95,7 @@
 
 (defun hnr--button (url-address label)
   (enable-write
-   (insert-button label
+   (insert-button (or label "[no link]")
 		  'follow-link t
 		  'action (lambda (x) (browse-url (button-get x 'url)))
 		  'url url-address
@@ -139,7 +139,7 @@
 	 (item-kids (cdr (assoc 'kids item-json)))
 	 (item-time (cdr (assoc 'time item-json)))
 	 (item-id-url (format "https://news.ycombinator.com/item?id=%d" item-id))
-	 (item-final-url (if (string= "" item-url) item-id-url item-url))
+	 (item-final-url (if (or (not item-url) (string= "" item-url)) item-id-url item-url))
 	 (buffer-read-only nil))
     (setq hnr--max-item (max hnr--max-item item-id))
     (insert (propertize (format "%s %-4d " (make-string 1 9650) (cdr (assoc 'score item-json)))
