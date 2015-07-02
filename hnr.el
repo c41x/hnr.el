@@ -171,11 +171,12 @@
 		 (hnr--fetch-item))
 	(enable-write
 	 (newline)
-	 (insert-button "Mark all as read"
-			'follow-link t
-			'face 'hnr-link-face
-			'mouse-face 'hnr-link-hover-face
-			'action 'hnr-mark-all-as-read)
+	 (unless (equal (max hnr--max-item hnr--read-item) (hnr--get-cache))
+	   (insert-button "Mark all as read"
+			  'follow-link t
+			  'face 'hnr-link-face
+			  'mouse-face 'hnr-link-hover-face
+			  'action 'hnr-mark-all-as-read))
 	 (insert "      ")
 	 (insert-button "More..."
 			'follow-link t
@@ -187,11 +188,12 @@
     (enable-write
      (insert "End of Feed")
      (insert "      ")
-     (insert-button "Mark all as read"
-		    'follow-link t
-		    'face 'hnr-link-face
-		    'mouse-face 'hnr-link-hover-face
-		    'action 'hnr-mark-all-as-read)
+     (unless (equal (max hnr--max-item hnr--read-item) (hnr--get-cache))
+       (insert-button "Mark all as read"
+		      'follow-link t
+		      'face 'hnr-link-face
+		      'mouse-face 'hnr-link-hover-face
+		      'action 'hnr-mark-all-as-read))
      (goto-char hnr--load-more-point)
      (hnr--move t))
     (when hnr-auto-mark-as-read
