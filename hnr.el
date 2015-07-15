@@ -178,7 +178,7 @@
 			  'mouse-face 'hnr-link-hover-face
 			  'action 'hnr-mark-all-as-read))
 	 (insert "      ")
-	 (insert-button "More..."
+	 (insert-button (format "More (%d) ..." (- (length hnr--items) hnr--item 1))
 			'follow-link t
 			'face 'hnr-link-face
 			'mouse-face 'hnr-link-hover-face
