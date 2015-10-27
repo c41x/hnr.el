@@ -10,7 +10,7 @@ Hacker News Reader for Emacs
 ## Keyboard shortcuts
 * n - down - select next
 * p - up - select previous
-* spacja - load more
+* space - load more
 * enter - open selected in browser
 * a - mark all as read
 * q - close
