@@ -6,6 +6,9 @@ Hacker News Reader for Emacs
 (setq hnr-max-items 10) ;; items to load (10 by default)
 (setq hnr-auto-mark-as-read nil) ;; mark all as read when opened (disabled by default)
 ```
+## Usage
+
+Run `M-x hnr`
 
 ## Keyboard shortcuts
 * n - down - select next
@@ -15,4 +18,5 @@ Hacker News Reader for Emacs
 * a - mark all as read
 * q - close
 
+## Preview
 ![Preview](/sample.png?raw=true "Preview")
